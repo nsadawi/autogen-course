@@ -1,0 +1,65 @@
+1. Create the Environment:
+I am using macOS/Linux: python3 -m venv myenv
+
+2. Activate the Environment
+macOS/Linux: source myenv/bin/activate
+
+3. Install and Use Packages (we might need more packages later, we'll install them on the go)
+pip install -U "autogen-agentchat" "autogen-ext[openai]"
+
+
+If you also want Claude (Anthropic) support via AutoGen extension:
+pip install -U "autogen-ext[anthropic]"
+
+
+(Optional but strongly recommended) Load keys from a .env file
+pip install -U python-dotenv
+
+
+Create a .env file:
+touch .env
+
+C. Add API keys securely (OpenAI / Claude / Gemini)
+The OpenAI API uses API keys and recommends loading them from environment variables (not hardcoding).
+Set an environment variable:
+
+export OPENAI_API_KEY="your_openai_key_here"
+
+ Anthropic’s SDK expects an API key (commonly via env var / dotenv). 
+
+Set either:
+
+export GEMINI_API_KEY="your_key_here"
+# OR
+export GOOGLE_API_KEY="your_key_here"
+
+
+Google’s docs state the SDK can pick up GEMINI_API_KEY or GOOGLE_API_KEY. 
+
+
+4. Deactivate and Delete
+deactivate
+rm -rf myenv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
