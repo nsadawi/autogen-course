@@ -1,0 +1,62 @@
+The planner_researcher_critic.py script implements a 3-agent automated workflow that produces a plan, does "research" (without real tools), then quality-checks it:
+Planner creates a numbered plan (no final answer)
+Researcher follows the plan and returns bullet findings
+Critic checks for gaps/unsupported claims and either requests revision or approves
+The run stops when the critic outputs DONE or after 12 messages
+
+It does not use any tools or human in the loop (these are added in the two other scripts provided in the repo).
+
+* Here are its core components:
+- Model client
+model = OpenAIChatCompletionClient(model="gpt-4o")
+This is the shared LLM backend used by all agents.
+
+- Agents
+It creates three AssistantAgents:
+1) planner:
+Prompted to:
+Output only a numbered plan
+Mention evidence/tools needed per step
+End with PLAN_READY
+It is explicitly told not to answer the user.
+
+2) researcher:
+Prompted to:
+Follow the plan
+“Use tools to gather evidence”
+Return bullet findings
+If evidence missing, say what’s missing
+End with RESEARCH_READY
+
+Important note: there are no tools configured (tools=[...] is not provided), so the researcher cannot actually call any tools. In practice it will either:
+ + hallucinate “evidence” unless it obeys the instruction to admit missing evidence, or
+ + state that tool/evidence access is missing (best-case behavior).
+
+So the phrase “Use tools” is currently aspirational, not implemented.
+
+3) critic:
+Prompted to:
+Flag unsupported claims, missing steps, risky assumptions, policy violations
+If issues, request a revision and say which agent should act next
+If satisfied, produce a short “approved” summary and end with DONE
+
+Important note: even if the critic says "planner should act next", the current orchestration is round-robin and will still go to the next agent in order (unless termination happens). There is no routing logic here; only sequential turns.
+
+
+* Orchestration / control flow
+Team:
+team = RoundRobinGroupChat([planner, researcher, critic], termination_condition=termination)
+Agents speak in a fixed cycle: planner → researcher → critic → planner → …
+
+Termination:
+termination = TextMentionTermination("DONE") | MaxMessageTermination(12)
+Stops immediately when any message contains substring DONE
+Or after 12 total messages as a safety cap
+
+Edge case: TextMentionTermination("DONE") triggers if DONE appears anywhere (even inside a longer word or a quote). Usually fine, but it can terminate earlier than intended if an agent happens to mention “DONE” casually.
+
+Task:
+task="Design a customer-support workflow for password reset and escalation".
+So the system will try to produce a workflow design: password reset steps + escalation.
+
+
