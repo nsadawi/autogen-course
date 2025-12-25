@@ -1,0 +1,104 @@
+The planner_researcher_critic_hitl.py script extends planner_researcher_critic.py by adding human in the loop functionality (to implement a 3-agent automated workflow that produces a plan, does "research" then quality-checks it).
+
+It implements a clean “Phase Gate” HITL pattern: Gate after planning (often best when execution cost/risk is high)
+
+
+* What changed vs the original (no-HITL) script?
+
+In the original script, one RoundRobinGroupChat([planner, researcher, critic]) runs end-to-end with no pause.
+
+In the HITL version: it becomes:
+- Planning phase (auto): run only the planner until it outputs PLAN_READY
+- Human checkpoint (manual): pause the Python program and ask you to APPROVE, EDIT: ..., or QUIT
+- Execution phase (auto): run researcher + critic using the approved plan injected into the task
+
+That’s the HITL: the human must explicitly approve (or send edits) before the system continues.
+
+* How the HITL loop works (step-by-step):
+
+1) A loop keeps running until a plan is approved
+approved_plan: Optional[str] = None
+human_notes: str = ""
+
+while approved_plan is None:
+    ...
+
+
+
+- approved_plan starts as None.
+- The loop repeats until the human approves a plan, at which point approved_plan becomes a string and the loop breaks.
+
+
+2) "Planning phase": run the PLANNER alone
+plan_termination = TextMentionTermination("PLAN_READY") | MaxMessageTermination(2)
+planning_team = RoundRobinGroupChat([planner], termination_condition=plan_termination)
+plan_result = await Console(planning_team.run_stream(task=planning_prompt))
+
+
+Key points:
+- The "team" is only [planner], so no other agents run yet.
+- Termination is set to:
+  + stop when the planner includes PLAN_READY, or
+  + stop after 2 messages (safety cap)
+- planning_prompt is the user task, plus any prior human feedback.
+
+
+3) Human feedback is injected back into replanning
+planning_prompt = user_task
+if human_notes.strip():
+    planning_prompt += "\n\nHuman feedback / constraints...\n" + human_notes
+
+
+So if you type "EDIT: add SLA timings and security checks", the next loop iteration runs the planner again, but now with those constraints appended.
+
+4) Extract the planner’s output text (version-robust)
+This is what _extract_last_text() is for.
+AutoGen versions sometimes return different result shapes. The helper tries:
+- result.messages[-1].content
+- result.chat_history[-1].content
+- result[-1].content if it looks like a list
+- otherwise str(result)
+
+So the approval gate can always display/approve the actual plan text.
+
+
+5) The human approval gate (this is the actual HITL)
+user_input = input("Your decision: ").strip()
+
+This is a blocking call—the program cannot continue until you respond. That’s what makes it real HITL.
+
+Decisions:
+- APPROVE → set approved_plan = plan_text and break out of the loop
+- EDIT: ... → store the edits in human_notes and loop back (re-plan)
+- QUIT → close the model client and return (stop everything)
+- anything else → treat it as feedback, store in human_notes, and loop back
+
+So the system is forced to get an explicit “go ahead” from you before it can do research.
+
+
+What happens after approval (execution phase)?
+6) Execution team is only researcher + critic:
+exec_team = RoundRobinGroupChat([researcher, critic], termination_condition=exec_termination)
+
+Planner is removed from this phase (unless you’d add it back for iterations).
+
+7) The approved plan is “pinned” into the task context
+exec_task = (
+    f"{user_task}\n\n"
+    "Human-approved plan (must follow this):\n"
+    f"{approved_plan}\n\n"
+    "Proceed with research and critique."
+)
+await Console(exec_team.run_stream(task=exec_task))
+
+This is the enforcement mechanism: the researcher is told to follow the plan because it’s included explicitly in its input context.
+
+
+8) Execution terminates when critic says DONE (or hits cap)
+exec_termination = TextMentionTermination("DONE") | MaxMessageTermination(12)
+
+So the researcher + critic will run round-robin until the critic outputs DONE or you hit 12 messages.
+
+
+--------
+This is a clean “Phase Gate” HITL pattern: Gate after planning (often best when execution cost/risk is high)
