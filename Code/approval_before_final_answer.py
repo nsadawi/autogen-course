@@ -1,3 +1,6 @@
+# This is an example to show Pattern B HITL: “Escalation + clarification”
+# See slides for more details
+
 import asyncio
 from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
 from autogen_agentchat.teams import RoundRobinGroupChat
