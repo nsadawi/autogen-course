@@ -1,0 +1,85 @@
+This is an AutoGen multi-agent workflow that implements a local prior-art “RAG-lite” pipeline.
+
+* How to run it:
+
+Requires:
+
+prior_art/ folder populated with .txt/.md
+
+OPENAI_API_KEY available (dotenv loads .env)
+
+Python deps installed (python-dotenv, scikit-learn, autogen_agentchat, autogen_ext)
+
+It streams outputs (model_client_stream=True) to console via:
+
+await Console(team.run_stream(task=invention_disclosure))
+
+To run it use: python ip_prior_art_assistant.py
+
+* How it works:
+1- Load .txt/.md prior-art docs from a local folder (prior_art/)
+
+2- Build a TF-IDF + cosine similarity index over full documents
+
+3- Expose three tool functions (pa_list_docs, pa_search, pa_get_excerpt) so an LLM agent can retrieve evidence from the local corpus
+
+4- Run a 4-agent RoundRobinGroupChat: Planner → Researcher → Critic → Drafter
+
+5- Stop when the drafter outputs FINAL_READY or after 14 messages
+
+
+** More Details **
+1) Document store + retrieval layer
+
+* Data model:
+Doc: {doc_id, path, text} where doc_id is the filename stem.
+
+load_prior_art(folder="prior_art"): Recursively loads .txt and .md. Errors out if folder missing or empty
+
+* Indexing:
+PriorArtIndex: TfidfVectorizer(stop_words="english", max_features=50000), doc_matrix = fit_transform([doc.text ...])
+
+* Search: 
+search(query, top_k): vectorizes query, cosine-sim to all docs, returns top_k (Doc, score)
+
+* Chunking:
+chunk_text(text, max_chars=1800, overlap=200), character-based chunks (simple, robust), overlap prevents cutting key sentences across boundaries
+
+Important implication: ranking is lexical (TF-IDF), not semantic embeddings. So synonyms/paraphrases can be missed unless the “Researcher” is prompted to broaden queries.
+
+2) Tools exposed to AutoGen
+A module-level global:
+- _INDEX: PriorArtIndex | None = None
+- Tools assert _INDEX is not None (hard-fails if not initialized)
+
+Tools:
+- pa_list_docs() → lists all doc_ids
+- pa_search(query, top_k) → doc ranking + score + 400-char preview
+- pa_get_excerpt(doc_id, query_hint, max_chunks):
+  + chunks the selected doc
+  + if query_hint is empty: returns first chunks
+  + else: builds a new TF-IDF vectorizer over chunks + hint and returns top matching chunks
+
+Design note: pa_search ranks documents, pa_get_excerpt ranks chunks within one doc. That’s a sensible 2-stage retrieval pattern, just “classical IR” rather than embeddings.
+
+3) Multi-agent orchestration
+
+* Agents:
+- planner: produces a plan only, ends with PLAN_READY
+- researcher: has tool access and must cite doc_id; ends with RESEARCH_READY
+- critic: quality gate; if satisfied says APPROVED and ends with DONE
+- drafter: writes the final memo; ends with FINAL_READY
+
+* Team:
+RoundRobinGroupChat(participants=[planner, researcher, critic, drafter]): Each agent takes turns in sequence.
+
+* Termination:
+TextMentionTermination("FINAL_READY") | MaxMessageTermination(14): Conversation stops as soon as any message contains FINAL_READY , Or stops after 14 total messages (safety cap)
+
+
+* Human in the Loop (HITL):
+The ip_prior_art_assistant.py does not implement HITL in the strict sense. It mentions escalation ("The system can escalate to a human") in the invention disclosure.
+
+The code does not pause for a human approval step, does not request human input, and does not have an "Approver" agent that waits for user confirmation.
+
+Therefore, this is automated multi-agent + quality-gating, not actual human-in-the-loop control.

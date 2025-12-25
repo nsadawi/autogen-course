@@ -1,0 +1,28 @@
+The ip_prior_art_assistant_hitl.py script implements HITL.
+It's an extension of the ip_prior_art_assistant.py so please read its corresponding info file for more details.
+
+* How HITL is implemented: 
+- Adds an approver (UserProxyAgent) that pauses the workflow and asks the human to: 
+APPROVE → allow the drafter to produce the final memo
+MORE: ... → request extra research/synonyms/more excerpts and loop again
+STOP → end the run
+
+- Updates the critic to end with either HITL_APPROVAL_NEEDED or HITL_MORE_RESEARCH_NEEDED.
+
+- Updates the drafter so it only outputs FINAL_READY if the human approved.
+
+- Keeps the existing tool functions (pa_list_docs, pa_search, pa_get_excerpt) and researcher tool access.
+
+This pattern follows AutoGen AgentChat HITL using UserProxyAgent
+
+
+* How it behaves (HITL loop): 
+- After critic, the approver prompts you in the terminal.
+- If you type MORE: search for synonyms of “audit log” + find excerpts about “policy citations”, the cycle continues:
+  + The next round’s planner will incorporate that instruction (per its prompt),
+  + researcher will use tools again,
+  + critic re-checks,
+  + approver asks again,
+  + drafter only finalizes after APPROVE.
+
+
