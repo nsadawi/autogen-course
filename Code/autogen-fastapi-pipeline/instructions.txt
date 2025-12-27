@@ -7,7 +7,7 @@ autogen-fastapi-pipeline/
 
 
 
-2- Install dependencies
+2- Install dependencies:
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -21,7 +21,7 @@ autogen-agentchat + autogen-ext[openai] is the core for AgentChat + OpenAI clien
 autogen-ext[anthropic] enables the Anthropic client for Claude (optional but requested).
 
 
-3- Set environment variables
+3- Set environment variables:
 Minimum (to work): OpenAI:
 export OPENAI_API_KEY="..."
 
@@ -85,37 +85,17 @@ Step B— Approve or reject:
 You can also use 'curl' from command line if you have it installed.
 Something like the following should work:
 
-curl -s -X POST "http://127.0.0.1:8000/runs/start" \
-  -H "Content-Type: application/json" \
+curl -X 'POST' \
+  'http://127.0.0.1:8000/runs/start' \
+  -H 'Content-Type: application/json' \
   -d '{
-    "invention_disclosure": "Invention disclosure: A system that scans prior-art documents, extracts claim-like features, and produces a risk memo on novelty/obviousness with evidence excerpts. It runs as a pipeline planner->executor->reviewer->human approver.",
-    "constraints": "Do not give legal advice. Use hedging language. If evidence is weak, recommend next steps.",
-    "top_k_docs": 5
-  }'
+  "invention_disclosure": "A system that scans prior-art documents for claim-like features and summarizes novelty/obviousness risk using evidence excerpts from the corpus.",
+  "constraints": "Focus on software patents; include clear uncertainty statements; do not claim legal conclusions.",
+  "top_k_docs": 5
+}'
 
 
-- Make a note of the run_id and then you can: 
-+ Approve the run (Human-in-the-loop):
-
-curl -s -X POST "http://127.0.0.1:8000/runs/RUN_ID/approve" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "decision": "APPROVE",
-    "approver_notes": "Make the risk section explicit. Add next steps (claim charting, more synonyms, deeper search)."
-  }'
-
-
-+ Or, reject the run:
-curl -s -X POST "http://127.0.0.1:8000/runs/RUN_ID/approve" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "decision": "REJECT",
-    "approver_notes": "Evidence mapping is insufficient. Please add more excerpts and rerun with better queries."
-  }'
-
-
-
----- You can also use Python ----
+---- Python ----
 You can also use Python:
 
 import requests
