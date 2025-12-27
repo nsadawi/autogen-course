@@ -1,0 +1,134 @@
+1- Create the following folder(s) and file(s):
+autogen-fastapi-pipeline/
+  app.py
+  prior_art/                # optional: local docs for "search"
+    doc1.txt
+    doc2.txt
+
+
+
+2- Install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+
+pip install -U fastapi uvicorn python-dotenv
+pip install -U autogen-agentchat "autogen-ext[openai]" "autogen-ext[anthropic]"
+pip install -U scikit-learn
+
+
+Notes:
+autogen-agentchat + autogen-ext[openai] is the core for AgentChat + OpenAI client.
+autogen-ext[anthropic] enables the Anthropic client for Claude (optional but requested).
+
+
+3- Set environment variables
+Minimum (to work): OpenAI:
+export OPENAI_API_KEY="..."
+
+Optional (Gemini for planning via OpenAI-compatible endpoint):
+export GEMINI_BASE_URL="https://YOUR_OPENAI_COMPAT_ENDPOINT/v1"
+export GEMINI_API_KEY="..."
+export GEMINI_MODEL="gemini-2.0-flash"   # example name; depends on your endpoint/provider
+
+
+Optional (Claude for review):
+export ANTHROPIC_API_KEY="..."
+export CLAUDE_MODEL="claude-3-5-sonnet-latest"
+
+
+Also choose GPT model for execution:
+export OPENAI_EXEC_MODEL="gpt-4o"
+
+Provider compatibility warning (real-world): “Gemini via OpenAI-compatible endpoint” depends on the gateway you use. If it doesn’t behave perfectly like OpenAI, the app will still run because it falls back to OpenAI.
+
+
+4- Run the server:
+uvicorn app:app --reload --port 8000
+
+
+Open:
+Swagger UI: http://127.0.0.1:8000/docs
+Health: http://127.0.0.1:8000/health
+
+
+5- How to use it (example):
+Step A- Start a run:
+You can use the FastAPI "Swagger" UI. FastAPI comes with a built-in interface that allows you to test endpoints directly.
+Here is what you need to do:
+ a- Navigate to: http://127.0.0.1:8000/docs (replace the IP/port if yours is different).
+ b- Find the Route: Look for the POST /runs/start section and click to expand it.
+ c- Try it out: Click the "Try it out" button.
+ d- Input Data: Paste your JSON body into the text area. You can try something like:
+ {
+  "invention_disclosure": "A system that scans prior-art documents for claim-like features and summarizes novelty/obviousness risk using evidence excerpts from the corpus.",
+  "constraints": "Focus on software patents; include clear uncertainty statements; do not claim legal conclusions.",
+  "top_k_docs": 5
+ }
+ e- Execute: Click the big blue "Execute" button. You will see the response body and status code immediately below.
+
+The response should contain:
+- run_id
+- an approval_request.transcript that includes the planner plan, executor tool calls, and reviewer verdict.
+
+Step B— Approve or reject:
+ a- Now find the POST /runs/{run_id}/approve section and click to expand it.
+ b- Paste the run_id from Step A into the run_id text box.
+ c- Paste something like the following JSON to approve:  
+{
+  "decision": "APPROVE",
+  "approver_notes": "Make the risk section more explicit and add recommended next steps for deeper search."
+}
+ d- Execute: Click the big blue "Execute" button. You will get final_output (the final memo). .
+
+
+---- Extra -----
+You can also use 'curl' from command line if you have it installed.
+Something like the following should work:
+
+curl -s -X POST "http://127.0.0.1:8000/runs/start" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "invention_disclosure": "Invention disclosure: A system that scans prior-art documents, extracts claim-like features, and produces a risk memo on novelty/obviousness with evidence excerpts. It runs as a pipeline planner->executor->reviewer->human approver.",
+    "constraints": "Do not give legal advice. Use hedging language. If evidence is weak, recommend next steps.",
+    "top_k_docs": 5
+  }'
+
+
+- Make a note of the run_id and then you can: 
++ Approve the run (Human-in-the-loop):
+
+curl -s -X POST "http://127.0.0.1:8000/runs/RUN_ID/approve" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "decision": "APPROVE",
+    "approver_notes": "Make the risk section explicit. Add next steps (claim charting, more synonyms, deeper search)."
+  }'
+
+
++ Or, reject the run:
+curl -s -X POST "http://127.0.0.1:8000/runs/RUN_ID/approve" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "decision": "REJECT",
+    "approver_notes": "Evidence mapping is insufficient. Please add more excerpts and rerun with better queries."
+  }'
+
+
+
+---- You can also use Python ----
+You can also use Python:
+
+import requests
+
+url = "http://127.0.0.1:8000/runs/start"
+data = {
+    "invention_disclosure": "A system that scans prior-art documents...",
+    "constraints": "Focus on software patents; include clear uncertainty statements...",
+    "top_k_docs": 5
+}
+
+response = requests.post(url, json=data)
+
+print(f"Status Code: {response.status_code}")
+print(response.json())
+

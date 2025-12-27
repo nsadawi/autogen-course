@@ -1,0 +1,42 @@
+Explanation of the logic:
+
+A) Pipeline orchestration:
+- The app uses RoundRobinGroupChat to enforce a strict order:
+  + Planner produces structured plan (PLAN_READY)
+  + Executor calls tools and drafts memo (EXEC_DONE)
+  + Reviewer quality-gates and produces verdict (REVIEW_DONE)
+
+We stop after REVIEW_DONE so the human can approve.
+
+B) Human-in-the-loop approval:
+We store the run in _RUNS[run_id] with status PENDING_APPROVAL.
+Approval happens via /approve:
+  + REJECT: stop
+  + APPROVE: run a finalizer agent that turns the transcript + human notes into a final memo (FINAL_READY)
+
+C) Tools and “no hallucination” discipline:
+- The executor is allowed to use three tools:
+   + corpus_list_docs()
+   + corpus_search(query, top_k)
+   + corpus_get_excerpts(doc_id, query_hint, max_chunks)
+
+- Each tool returns a consistent structure:
+   + {"ok": true, "data": ...} or {"ok": false, "error_type": ..., ...}
+
+The executor prompt explicitly forbids inventing contents and requires excerpts from tools.
+
+D) Multi-model wiring:
+- Planner tries Gemini via OpenAI-compatible endpoint if configured; else uses OpenAI.
+- Reviewer tries Claude (Anthropic) if configured; else uses OpenAI.
+- Executor/finalizer uses OpenAI (GPT) for reliable tool use.
+
+This makes the app "works out of the box" with OpenAI only, but supports your desired split when keys are available.
+
+-------------
+
+Notes for production hardening (quick list):
+- Replace _RUNS with Redis/Postgres (so restarts don’t lose runs)
+- Add auth (API keys/JWT), rate limits
+- Add timeouts / retries for model calls and tools
+- Add PII redaction before storing transcripts
+- Add OpenTelemetry exporter (collector, Jaeger, etc.) if you want full tracing
