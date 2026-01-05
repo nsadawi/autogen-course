@@ -287,7 +287,7 @@ async def main() -> None:
         model_client_stream=True,
     )
 
-    # ✅ HITL agent (no system_message argument!)
+    # HITL agent (no system_message argument!)
     approver = UserProxyAgent(
         name="approver",
         description="Human approver. Type APPROVE, MORE: ..., or STOP when prompted.",
