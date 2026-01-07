@@ -37,7 +37,7 @@ def create_ticket(user_summary: str, category: str, priority: str = "normal", co
     # In production, you would persist this to a DB or send to a ticketing API.
     return f"Created ticket: {asdict(t)}"
 
-SYSTEM_MESSAGE = """You are a customer support assistant for ACME Telecom.
+SYSTEM_MESSAGE = """You are a customer support assistant for Qaswa Telecom.
 
 Goals:
 - Resolve the user's issue accurately and efficiently.
@@ -70,7 +70,7 @@ async def main():
         model_client_stream=True,
     )
 
-    print("\nACME Support Bot (type 'exit' to quit)\n")
+    print("\nQaswa Support Bot (type 'exit' to quit)\n")
     while True:
         user_text = input("You: ").strip()
         if user_text.lower() in {"exit", "quit"}:
