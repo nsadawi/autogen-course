@@ -8,53 +8,7 @@ from autogen_agentchat.conditions import TextMentionTermination, MaxMessageTermi
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-
-# ---- REAL WEB SEARCH TOOL (SerpAPI) ----
-def web_search(query: str, top_k: int = 5) -> str:
-    """
-    Perform a real web search using SerpAPI (Google Search).
-    Returns a compact, structured summary suitable for LLM reasoning.
-    """
-    api_key = os.getenv("SERPAPI_API_KEY")
-    if not api_key:
-        return "ERROR: SERPAPI_API_KEY not set."
-
-    params = {
-        "engine": "google",
-        "q": query,
-        "num": top_k,
-        "api_key": api_key,
-    }
-
-    try:
-        response = requests.get(
-            "https://serpapi.com/search",
-            params=params,
-            timeout=10
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        organic = data.get("organic_results", [])[:top_k]
-        if not organic:
-            return "No relevant search results found."
-
-        results = []
-        for i, item in enumerate(organic, start=1):
-            title = item.get("title", "No title")
-            snippet = item.get("snippet", "No snippet")
-            link = item.get("link", "No link")
-            results.append(
-                f"{i}. {title}\n"
-                f"   {snippet}\n"
-                f"   Source: {link}"
-            )
-
-        return "\n".join(results)
-
-    except Exception as e:
-        return f"Web search failed: {str(e)}"
-
+from tools import web_search
 
 async def main():
     model = OpenAIChatCompletionClient(model="gpt-4o")

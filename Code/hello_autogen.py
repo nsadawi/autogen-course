@@ -10,7 +10,7 @@ async def main():
         model_client=model_client,
         system_message="You are a helpful assistant."
     )
-    await Console(agent.run_stream(task="Say hello in one sentence."))
+    await Console(agent.run_stream(task="Say hello in Italian. Add to it a friendly order to get a nice cup of coffee!"))
     await model_client.close()
 
 if __name__ == "__main__":
