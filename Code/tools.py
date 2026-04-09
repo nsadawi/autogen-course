@@ -1,6 +1,7 @@
 import requests
 import sqlite3
 import subprocess
+import os
 
 #def web_search(query: str, top_k: int = 5) -> str:
 #    """Search the web for the query and return top results as a short list."""

@@ -1,5 +1,4 @@
 import asyncio
-import os
 import requests
 
 from autogen_agentchat.agents import AssistantAgent
