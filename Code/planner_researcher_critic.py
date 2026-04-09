@@ -42,7 +42,7 @@ async def main():
     )
 
     # Terminate when critic says DONE OR after a safety cap on turns
-    termination = TextMentionTermination("DONE") | MaxMessageTermination(12)
+    termination = TextMentionTermination("DONE") | MaxMessageTermination(5)
 
     team = RoundRobinGroupChat([planner, researcher, critic], termination_condition=termination)
 
